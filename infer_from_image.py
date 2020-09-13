@@ -33,7 +33,7 @@ tf.flags.DEFINE_boolean('detect_masks', None,
                         'If true, output inferred masks.')
 tf.flags.DEFINE_integer('override_num_detections', None,
                         'If set, this overrides the number of detections written in the graph.')
-tf.flags.DEFINE_float('min_score_thresh', 0.5,
+tf.flags.DEFINE_float('min_score_thresh', 0.6,
                       'Minimum score. Detection proposals below this score are discarded.')
 
 FLAGS = tf.flags.FLAGS
@@ -45,8 +45,8 @@ def build_input():
   image_tensor = image_ph = tf.placeholder(dtype=tf.uint8, shape=[None, None, 3], name='image_ph')
   image_resizer_text_proto = """
     keep_aspect_ratio_resizer {
-      min_dimension: 800
-      max_dimension: 1365
+      min_dimension: 256
+      max_dimension: 2048
     }
   """
   image_resizer_config = image_resizer_pb2.ImageResizer()
@@ -71,7 +71,9 @@ def main(_):
     if not getattr(FLAGS, flag_name):
       raise ValueError('Flag --{} is required'.format(flag_name))
 
-  sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, ))
+  config = tf.ConfigProto(allow_soft_placement=True)
+  # config.gpu_options.allow_growth = True
+  sess = tf.Session(config=config)
 
   input_image_paths = []
   for v in FLAGS.input_images.split(','):
@@ -95,7 +97,6 @@ def main(_):
       min_score_thresh=FLAGS.min_score_thresh,
       visualize_inference=FLAGS.visualize_inference,
       feed_dict={image_ph: image_np})
-
     if FLAGS.output_cropped_image:
       if FLAGS.only_output_cropped_single_object and len(result["detection_score"]) == 1:
         num_outputs = 1
@@ -103,7 +104,7 @@ def main(_):
         num_outputs = len(result["detection_score"])
 
       for crop_i in range(0, num_outputs):
-        if (result["detection_score"])[crop_i] > FLAGS.min_score_thresh:
+        if (result["detection_score"])[crop_i] > FLAGS.min_score_thresh and (result["detection_class_label"])[crop_i] == 1:
           base, ext = os.path.splitext(os.path.basename(image_path))
           output_crop = os.path.join(FLAGS.output_path, base + '_crop_%d.png' %crop_i)
           idims = image_np.shape  # np array with shape (height, width, num_color(1, 3, or 4))
@@ -126,9 +127,9 @@ def main(_):
         util_io.imsave(output_mask, np.array(result['detected_masks'][mask_i]) * 255)
       del result['detected_masks']  # Storing mask in json is pretty space consuming.
 
-    output_file = os.path.join(FLAGS.output_path, os.path.splitext(os.path.basename(image_path))[0] + '.json')
-    with open(output_file, 'w') as f:
-      json.dump(result, f)
+    # output_file = os.path.join(FLAGS.output_path, os.path.splitext(os.path.basename(image_path))[0] + '.json')
+    # with open(output_file, 'w') as f:
+    #   json.dump(result, f)
 
     tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, i, len(input_image_paths))
 

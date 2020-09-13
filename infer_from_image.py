@@ -3,6 +3,7 @@ import json
 import os
 import threading
 
+import cv2
 import numpy as np
 import tensorflow as tf
 from google.protobuf import text_format
@@ -117,8 +118,26 @@ def main(_):
           mid_x = min_x + (range_x // 2)
           mid_y = min_y + (range_y // 2)
           max_dim = max(range_x, range_y)
-          max_dim += int(max_dim * 0.6)
-          image_cropped = image_np[mid_y-(max_dim//2):mid_y+(max_dim//2), mid_x-(max_dim//2):mid_x+(max_dim//2), :]
+          max_dim *= 2
+          min_x = mid_x-(max_dim//2)
+          max_x = mid_x+(max_dim//2)
+          min_y = mid_y-(max_dim//2)
+          max_y = mid_y+(max_dim//2)
+          if (min_x < 0):
+            max_x += abs(min_x)
+            min_x = 0
+          elif (min_y < 0):
+            max_y += abs(min_y)
+            min_y = 0
+          if (max_x > idims[1]):
+            min_x -= (max_x - idims[1])
+            max_x = idims[1]
+          elif (max_y > idims[0]):
+            min_y -= (max_y - idims[0])
+            max_y = idims[1]
+          image_cropped = image_np[min_y:max_y, min_x:max_x, :]
+          if image_cropped.shape[0] > 256:
+            image_cropped = cv2.resize(image_cropped, dsize=(256, 256), interpolation=cv2.INTER_LANCZOS4)
           util_io.imsave(output_crop, image_cropped)
 
     if FLAGS.visualize_inference:

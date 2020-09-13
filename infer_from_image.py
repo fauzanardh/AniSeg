@@ -72,7 +72,7 @@ def main(_):
       raise ValueError('Flag --{} is required'.format(flag_name))
 
   config = tf.ConfigProto(allow_soft_placement=True)
-  # config.gpu_options.allow_growth = True
+  config.gpu_options.allow_growth = True
   sess = tf.Session(config=config)
 
   input_image_paths = []

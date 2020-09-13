@@ -112,7 +112,13 @@ def main(_):
           max_x = int(min(round(result["detection_bbox_xmax"][crop_i] * idims[1]), idims[1]))
           min_y = int(min(round(result["detection_bbox_ymin"][crop_i] * idims[0]), idims[0]))
           max_y = int(min(round(result["detection_bbox_ymax"][crop_i] * idims[0]), idims[0]))
-          image_cropped = image_np[min_y:max_y, min_x:max_x, :]
+          range_x = abs(min_x - max_x)
+          range_y = abs(min_y - max_y)
+          mid_x = min_x + (range_x // 2)
+          mid_y = min_y + (range_y // 2)
+          max_dim = max(range_x, range_y)
+          max_dim += int(max_dim * 0.6)
+          image_cropped = image_np[mid_y-(max_dim//2):mid_y+(max_dim//2), mid_x-(max_dim//2):mid_x+(max_dim//2), :]
           util_io.imsave(output_crop, image_cropped)
 
     if FLAGS.visualize_inference:

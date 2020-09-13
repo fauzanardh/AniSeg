@@ -118,7 +118,7 @@ def main(_):
           mid_x = min_x + (range_x // 2)
           mid_y = min_y + (range_y // 2)
           max_dim = max(range_x, range_y)
-          max_dim += max_dim * 0.75
+          max_dim += int(max_dim * 0.75)
           min_x = mid_x-(max_dim//2)
           max_x = mid_x+(max_dim//2)
           min_y = mid_y-(max_dim//2)

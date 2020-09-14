@@ -92,7 +92,11 @@ def main(_):
   sess.run(tf.local_variables_initializer())
 
   for i, image_path in enumerate(input_image_paths):
-    image_np = util_io.imread(image_path)
+    try:
+        image_np = util_io.imread(image_path)
+    except:
+        tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, i, len(input_image_paths))
+        continue
     result = inference_class.infer_detections(
       sess, image_tensor, detected_tensors,
       min_score_thresh=FLAGS.min_score_thresh,
@@ -105,40 +109,43 @@ def main(_):
         num_outputs = len(result["detection_score"])
 
       for crop_i in range(0, num_outputs):
-        if (result["detection_score"])[crop_i] > FLAGS.min_score_thresh and (result["detection_class_label"])[crop_i] == 1:
-          base, ext = os.path.splitext(os.path.basename(image_path))
-          output_crop = os.path.join(FLAGS.output_path, base + '_crop_%d.png' %crop_i)
-          idims = image_np.shape  # np array with shape (height, width, num_color(1, 3, or 4))
-          min_x = int(min(round(result["detection_bbox_xmin"][crop_i] * idims[1]), idims[1]))
-          max_x = int(min(round(result["detection_bbox_xmax"][crop_i] * idims[1]), idims[1]))
-          min_y = int(min(round(result["detection_bbox_ymin"][crop_i] * idims[0]), idims[0]))
-          max_y = int(min(round(result["detection_bbox_ymax"][crop_i] * idims[0]), idims[0]))
-          range_x = abs(min_x - max_x)
-          range_y = abs(min_y - max_y)
-          mid_x = min_x + (range_x // 2)
-          mid_y = min_y + (range_y // 2)
-          max_dim = max(range_x, range_y)
-          max_dim += int(max_dim * 0.75)
-          min_x = mid_x-(max_dim//2)
-          max_x = mid_x+(max_dim//2)
-          min_y = mid_y-(max_dim//2)
-          max_y = mid_y+(max_dim//2)
-          if (min_x < 0):
-            max_x += abs(min_x)
-            min_x = 0
-          elif (min_y < 0):
-            max_y += abs(min_y)
-            min_y = 0
-          if (max_x > idims[1]):
-            min_x -= (max_x - idims[1])
-            max_x = idims[1]
-          elif (max_y > idims[0]):
-            min_y -= (max_y - idims[0])
-            max_y = idims[1]
-          image_cropped = image_np[min_y:max_y, min_x:max_x, :]
-          if image_cropped.shape[0] > 256:
-            image_cropped = cv2.resize(image_cropped, dsize=(256, 256), interpolation=cv2.INTER_CUBIC)
-          util_io.imsave(output_crop, image_cropped)
+        try:
+            if (result["detection_score"])[crop_i] > FLAGS.min_score_thresh and (result["detection_class_label"])[crop_i] == 1:
+              base, ext = os.path.splitext(os.path.basename(image_path))
+              output_crop = os.path.join(FLAGS.output_path, base + '_crop_%d.png' %crop_i)
+              idims = image_np.shape  # np array with shape (height, width, num_color(1, 3, or 4))
+              min_x = int(min(round(result["detection_bbox_xmin"][crop_i] * idims[1]), idims[1]))
+              max_x = int(min(round(result["detection_bbox_xmax"][crop_i] * idims[1]), idims[1]))
+              min_y = int(min(round(result["detection_bbox_ymin"][crop_i] * idims[0]), idims[0]))
+              max_y = int(min(round(result["detection_bbox_ymax"][crop_i] * idims[0]), idims[0]))
+              range_x = abs(min_x - max_x)
+              range_y = abs(min_y - max_y)
+              mid_x = min_x + (range_x // 2)
+              mid_y = min_y + (range_y // 2)
+              max_dim = max(range_x, range_y)
+              max_dim += int(max_dim * 0.75)
+              min_x = mid_x-(max_dim//2)
+              max_x = mid_x+(max_dim//2)
+              min_y = mid_y-(max_dim//2)
+              max_y = mid_y+(max_dim//2)
+              if (min_x < 0):
+                max_x += abs(min_x)
+                min_x = 0
+              elif (min_y < 0):
+                max_y += abs(min_y)
+                min_y = 0
+              if (max_x > idims[1]):
+                min_x -= (max_x - idims[1])
+                max_x = idims[1]
+              elif (max_y > idims[0]):
+                min_y -= (max_y - idims[0])
+                max_y = idims[1]
+              image_cropped = image_np[max(0, min_y):min(idims[0], max_y), max(0, min_x):min(idims[1], max_x), :]
+              if image_cropped.shape[0] > 512:
+                image_cropped = cv2.resize(image_cropped, dsize=(512, 512), interpolation=cv2.INTER_CUBIC)
+              util_io.imsave(output_crop, image_cropped)
+        except:
+            continue
 
     if FLAGS.visualize_inference:
       output_image = os.path.join(FLAGS.output_path, os.path.basename(image_path))

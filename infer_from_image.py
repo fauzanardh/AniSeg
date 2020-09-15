@@ -94,14 +94,14 @@ def main(_):
   for i, image_path in enumerate(input_image_paths):
     try:
         image_np = util_io.imread(image_path)
+        result = inference_class.infer_detections(
+          sess, image_tensor, detected_tensors,
+          min_score_thresh=FLAGS.min_score_thresh,
+          visualize_inference=FLAGS.visualize_inference,
+          feed_dict={image_ph: image_np})    
     except:
         tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, i, len(input_image_paths))
         continue
-    result = inference_class.infer_detections(
-      sess, image_tensor, detected_tensors,
-      min_score_thresh=FLAGS.min_score_thresh,
-      visualize_inference=FLAGS.visualize_inference,
-      feed_dict={image_ph: image_np})
     if FLAGS.output_cropped_image:
       if FLAGS.only_output_cropped_single_object and len(result["detection_score"]) == 1:
         num_outputs = 1

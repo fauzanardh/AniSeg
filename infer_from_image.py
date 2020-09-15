@@ -91,7 +91,7 @@ def main(_):
     FLAGS.output_path))
   sess.run(tf.local_variables_initializer())
 
-  for i, image_path in enumerate(input_image_paths):
+  for i, image_path in enumerate(sorted(input_image_paths)):
     try:
         image_np = util_io.imread(image_path)
         result = inference_class.infer_detections(

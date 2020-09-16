@@ -160,6 +160,7 @@ def main(_):
         #   json.dump(result, f)
 
         tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, i, len(input_image_paths))  
+      images_np = []
     else:
       print("Loading %d / %d from %d batch", i % batch_size, batch_size, i // batch_size)
       images_np.append(util_io.imread(image_path))

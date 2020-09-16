@@ -34,7 +34,7 @@ tf.flags.DEFINE_boolean('detect_masks', None,
                         'If true, output inferred masks.')
 tf.flags.DEFINE_integer('override_num_detections', None,
                         'If set, this overrides the number of detections written in the graph.')
-tf.flags.DEFINE_float('min_score_thresh', 0.6,
+tf.flags.DEFINE_float('min_score_thresh', 0.4,
                       'Minimum score. Detection proposals below this score are discarded.')
 
 FLAGS = tf.flags.FLAGS
@@ -46,8 +46,8 @@ def build_input():
   image_tensor = image_ph = tf.placeholder(dtype=tf.uint8, shape=[None, None, 3], name='image_ph')
   image_resizer_text_proto = """
     keep_aspect_ratio_resizer {
-      min_dimension: 256
-      max_dimension: 2048
+      min_dimension: 800
+      max_dimension: 1365
     }
   """
   image_resizer_config = image_resizer_pb2.ImageResizer()
@@ -93,7 +93,13 @@ def main(_):
   batch_size = 1000
   images_np = []
 
-  for i, image_path in enumerate(sorted(input_image_paths)):
+  for i, image_path in enumerate(sorted(input_image_paths)):    
+    tf.logging.log_every_n(tf.logging.INFO, "Loading %d / %d from %d batch", 10, i % batch_size, batch_size, i // batch_size)
+    try: # sometimes images are truncated
+      images_np.append(util_io.imread(image_path))
+    except:
+      input_image_paths.pop(i)
+      continue
     if i % batch_size == 0:
       for image_np in images_np:
         result = inference_class.infer_detections(
@@ -161,12 +167,6 @@ def main(_):
 
         tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, i, len(input_image_paths))  
       images_np = []
-    else:
-      print("Loading %d / %d from %d batch", i % batch_size, batch_size, i // batch_size)
-      images_np.append(util_io.imread(image_path))
-
-    tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, i, len(input_image_paths))
-
   print('Finished processing all images in data set.')
 
 

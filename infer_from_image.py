@@ -35,7 +35,7 @@ tf.flags.DEFINE_boolean('detect_masks', None,
                         'If true, output inferred masks.')
 tf.flags.DEFINE_integer('override_num_detections', None,
                         'If set, this overrides the number of detections written in the graph.')
-tf.flags.DEFINE_float('min_score_thresh', 0.4,
+tf.flags.DEFINE_float('min_score_thresh', 0.25,
                       'Minimum score. Detection proposals below this score are discarded.')
 
 FLAGS = tf.flags.FLAGS
@@ -92,7 +92,7 @@ def main(_):
   tf.logging.info('Running inference and writing output to {}'.format(
     FLAGS.output_path))
   sess.run(tf.local_variables_initializer())
-  batch_size = 20
+  batch_size = 640
   images_np = []
   paths = []
   images_index = 0

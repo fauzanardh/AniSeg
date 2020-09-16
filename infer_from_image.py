@@ -90,26 +90,25 @@ def main(_):
   tf.logging.info('Running inference and writing output to {}'.format(
     FLAGS.output_path))
   sess.run(tf.local_variables_initializer())
+  batch_size = 1000
+  images_np = []
 
   for i, image_path in enumerate(sorted(input_image_paths)):
-    try:
-        image_np = util_io.imread(image_path)
+    if i % batch_size == 0:
+      for image_np in images_np:
         result = inference_class.infer_detections(
           sess, image_tensor, detected_tensors,
           min_score_thresh=FLAGS.min_score_thresh,
           visualize_inference=FLAGS.visualize_inference,
-          feed_dict={image_ph: image_np})    
-    except:
-        tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, i, len(input_image_paths))
-        continue
-    if FLAGS.output_cropped_image:
-      if FLAGS.only_output_cropped_single_object and len(result["detection_score"]) == 1:
-        num_outputs = 1
-      else:
-        num_outputs = len(result["detection_score"])
+          feed_dict={image_ph: image_np}
+        )
+        if FLAGS.output_cropped_image:
+          if FLAGS.only_output_cropped_single_object and len(result["detection_score"]) == 1:
+            num_outputs = 1
+          else:
+            num_outputs = len(result["detection_score"])
 
-      for crop_i in range(0, num_outputs):
-        try:
+          for crop_i in range(num_outputs):
             if (result["detection_score"])[crop_i] > FLAGS.min_score_thresh and (result["detection_class_label"])[crop_i] == 1:
               base, ext = os.path.splitext(os.path.basename(image_path))
               output_crop = os.path.join(FLAGS.output_path, base + '_crop_%d.png' %crop_i)
@@ -144,24 +143,26 @@ def main(_):
               if image_cropped.shape[0] > 512:
                 image_cropped = cv2.resize(image_cropped, dsize=(512, 512), interpolation=cv2.INTER_CUBIC)
               util_io.imsave(output_crop, image_cropped)
-        except:
-            continue
+        if FLAGS.visualize_inference:
+          output_image = os.path.join(FLAGS.output_path, os.path.basename(image_path))
+          util_io.imsave(output_image, result['annotated_image'])
+          del result['annotated_image']  # No need to write the image to json.
+        if FLAGS.detect_masks:
+          base, ext = os.path.splitext(os.path.basename(image_path))
+          for mask_i in range(len(result['detected_masks'])):
+            # Stores as png to preserve accurate mask values.
+            output_mask = os.path.join(FLAGS.output_path, base + '_mask_%d' % mask_i + '.png')
+            util_io.imsave(output_mask, np.array(result['detected_masks'][mask_i]) * 255)
+          del result['detected_masks']  # Storing mask in json is pretty space consuming.
 
-    if FLAGS.visualize_inference:
-      output_image = os.path.join(FLAGS.output_path, os.path.basename(image_path))
-      util_io.imsave(output_image, result['annotated_image'])
-      del result['annotated_image']  # No need to write the image to json.
-    if FLAGS.detect_masks:
-      base, ext = os.path.splitext(os.path.basename(image_path))
-      for mask_i in range(len(result['detected_masks'])):
-        # Stores as png to preserve accurate mask values.
-        output_mask = os.path.join(FLAGS.output_path, base + '_mask_%d' % mask_i + '.png')
-        util_io.imsave(output_mask, np.array(result['detected_masks'][mask_i]) * 255)
-      del result['detected_masks']  # Storing mask in json is pretty space consuming.
+        # output_file = os.path.join(FLAGS.output_path, os.path.splitext(os.path.basename(image_path))[0] + '.json')
+        # with open(output_file, 'w') as f:
+        #   json.dump(result, f)
 
-    # output_file = os.path.join(FLAGS.output_path, os.path.splitext(os.path.basename(image_path))[0] + '.json')
-    # with open(output_file, 'w') as f:
-    #   json.dump(result, f)
+        tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, i, len(input_image_paths))  
+    else:
+      print("Loading %d / %d from %d batch", i % batch_size, batch_size, i // batch_size)
+      images_np.append(util_io.imread(image_path))
 
     tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, i, len(input_image_paths))
 

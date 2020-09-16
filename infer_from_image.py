@@ -1,6 +1,7 @@
 """Does object detection and segmentation on images."""
 import json
 import os
+import gc
 import threading
 
 import cv2
@@ -80,6 +81,7 @@ def main(_):
   for v in FLAGS.input_images.split(','):
     if v:
       input_image_paths += tf.gfile.Glob(v)
+  input_image_paths = sorted(input_image_paths)
   tf.logging.info('Reading input from %d files', len(input_image_paths))
   image_ph, image_tensor = build_input()
 
@@ -90,18 +92,15 @@ def main(_):
   tf.logging.info('Running inference and writing output to {}'.format(
     FLAGS.output_path))
   sess.run(tf.local_variables_initializer())
-  batch_size = 1000
+  batch_size = 20
   images_np = []
+  paths = []
+  images_index = 0
+  skipped = 0
 
-  for i, image_path in enumerate(sorted(input_image_paths)):    
-    tf.logging.log_every_n(tf.logging.INFO, "Loading %d / %d from %d batch", 10, i % batch_size, batch_size, i // batch_size)
-    try: # sometimes images are truncated
-      images_np.append(util_io.imread(image_path))
-    except:
-      input_image_paths.pop(i)
-      continue
-    if i % batch_size == 0:
-      for image_np in images_np:
+  for i, image_path in enumerate(input_image_paths):
+    if i % batch_size == 0 and i != 0:
+      for j, image_np in enumerate(images_np):
         result = inference_class.infer_detections(
           sess, image_tensor, detected_tensors,
           min_score_thresh=FLAGS.min_score_thresh,
@@ -116,8 +115,8 @@ def main(_):
 
           for crop_i in range(num_outputs):
             if (result["detection_score"])[crop_i] > FLAGS.min_score_thresh and (result["detection_class_label"])[crop_i] == 1:
-              base, ext = os.path.splitext(os.path.basename(image_path))
-              output_crop = os.path.join(FLAGS.output_path, base + '_crop_%d.png' %crop_i)
+              base, ext = os.path.splitext(os.path.basename(paths[images_index]))
+              output_crop = os.path.join(FLAGS.output_path, base + '_crop_%d.png' % crop_i)
               idims = image_np.shape  # np array with shape (height, width, num_color(1, 3, or 4))
               min_x = int(min(round(result["detection_bbox_xmin"][crop_i] * idims[1]), idims[1]))
               max_x = int(min(round(result["detection_bbox_xmax"][crop_i] * idims[1]), idims[1]))
@@ -128,7 +127,7 @@ def main(_):
               mid_x = min_x + (range_x // 2)
               mid_y = min_y + (range_y // 2)
               max_dim = max(range_x, range_y)
-              max_dim += int(max_dim * 0.75)
+              max_dim += int(max_dim * 0.80)
               min_x = mid_x-(max_dim//2)
               max_x = mid_x+(max_dim//2)
               min_y = mid_y-(max_dim//2)
@@ -150,23 +149,31 @@ def main(_):
                 image_cropped = cv2.resize(image_cropped, dsize=(512, 512), interpolation=cv2.INTER_CUBIC)
               util_io.imsave(output_crop, image_cropped)
         if FLAGS.visualize_inference:
-          output_image = os.path.join(FLAGS.output_path, os.path.basename(image_path))
+          output_image = os.path.join(FLAGS.output_path, os.path.basename(paths[images_index]))
           util_io.imsave(output_image, result['annotated_image'])
           del result['annotated_image']  # No need to write the image to json.
         if FLAGS.detect_masks:
-          base, ext = os.path.splitext(os.path.basename(image_path))
+          base, ext = os.path.splitext(os.path.basename(paths[images_index]))
           for mask_i in range(len(result['detected_masks'])):
             # Stores as png to preserve accurate mask values.
             output_mask = os.path.join(FLAGS.output_path, base + '_mask_%d' % mask_i + '.png')
             util_io.imsave(output_mask, np.array(result['detected_masks'][mask_i]) * 255)
           del result['detected_masks']  # Storing mask in json is pretty space consuming.
 
-        # output_file = os.path.join(FLAGS.output_path, os.path.splitext(os.path.basename(image_path))[0] + '.json')
+        # output_file = os.path.join(FLAGS.output_path, os.path.splitext(os.path.basename(paths[images_index]))[0] + '.json')
         # with open(output_file, 'w') as f:
         #   json.dump(result, f)
-
-        tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, i, len(input_image_paths))  
+        images_index += 1
+        tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, (j + (batch_size * ((i // batch_size) - 1))), len(input_image_paths) - skipped)  
       images_np = []
+      gc.collect()
+    print("Loading %d / %d from %d batch" % ((i % batch_size) + 1, batch_size, i // batch_size))
+    try: # sometimes images are truncated
+      img = util_io.imread(image_path)
+      images_np.append(img)
+      paths.append(image_path)
+    except:
+      skipped += 1
   print('Finished processing all images in data set.')
 
 

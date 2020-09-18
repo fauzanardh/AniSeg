@@ -101,12 +101,17 @@ def main(_):
   for i, image_path in enumerate(input_image_paths):
     if i % batch_size == 0 and i != 0:
       for j, image_np in enumerate(images_np):
-        result = inference_class.infer_detections(
-          sess, image_tensor, detected_tensors,
-          min_score_thresh=FLAGS.min_score_thresh,
-          visualize_inference=FLAGS.visualize_inference,
-          feed_dict={image_ph: image_np}
-        )
+        try:
+          result = inference_class.infer_detections(
+            sess, image_tensor, detected_tensors,
+            min_score_thresh=FLAGS.min_score_thresh,
+            visualize_inference=FLAGS.visualize_inference,
+            feed_dict={image_ph: image_np}
+          )
+        except:
+          images_index += 1
+          tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, (j + (batch_size * ((i // batch_size) - 1))), len(input_image_paths) - skipped)  
+          continue
         if FLAGS.output_cropped_image:
           if FLAGS.only_output_cropped_single_object and len(result["detection_score"]) == 1:
             num_outputs = 1

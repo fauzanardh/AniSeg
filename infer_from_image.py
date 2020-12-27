@@ -152,7 +152,7 @@ def main(_):
                 max_y = idims[1]
               image_cropped = image_np[max(0, min_y):min(idims[0], max_y), max(0, min_x):min(idims[1], max_x), :]
               if image_cropped.shape[0] > resolution:
-                image_cropped = cv2.resize(image_cropped, dsize=(resolution, resolution), interpolation=cv2.INTER_CUBIC)
+                image_cropped = cv2.resize(image_cropped, dsize=(resolution, resolution), interpolation=cv2.INTER_AREA)
               util_io.imsave(output_crop, image_cropped)
         if FLAGS.visualize_inference:
           output_image = os.path.join(FLAGS.output_path, os.path.basename(paths[images_index]))

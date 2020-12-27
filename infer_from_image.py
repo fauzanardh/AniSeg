@@ -92,7 +92,7 @@ def main(_):
   tf.logging.info('Running inference and writing output to {}'.format(
     FLAGS.output_path))
   sess.run(tf.local_variables_initializer())
-  batch_size = 640
+  batch_size = 128
   images_np = []
   paths = []
   images_index = 0

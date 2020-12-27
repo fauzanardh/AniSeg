@@ -173,7 +173,7 @@ def main(_):
         tf.logging.log_every_n(tf.logging.INFO, 'Processed %d/%d images...', 10, (j + (batch_size * ((i // batch_size) - 1))), len(input_image_paths) - skipped)  
       images_np = []
       gc.collect()
-    print("Loading %d / %d from %d batch" % ((i % batch_size) + 1, batch_size, i // batch_size))
+    print("Loading %d / %d images from batch %d" % ((i % batch_size) + 1, batch_size, (i // batch_size) + 1))
     try: # sometimes images are truncated
       img = util_io.imread(image_path)
       images_np.append(img)

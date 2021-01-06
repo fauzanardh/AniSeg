@@ -1,6 +1,7 @@
 """Does object detection and segmentation on images."""
 import json
 import os
+import math
 import gc
 import threading
 
@@ -92,8 +93,10 @@ def main(_):
   tf.logging.info('Running inference and writing output to {}'.format(
     FLAGS.output_path))
   sess.run(tf.local_variables_initializer())
-  batch_size = 128
+  batch_size = 10
   resolution = 256
+  min_scaling_value = 3
+  max_scaling_value = 6
   images_np = []
   paths = []
   images_index = 0
@@ -128,16 +131,17 @@ def main(_):
               max_x = int(min(round(result["detection_bbox_xmax"][crop_i] * idims[1]), idims[1]))
               min_y = int(min(round(result["detection_bbox_ymin"][crop_i] * idims[0]), idims[0]))
               max_y = int(min(round(result["detection_bbox_ymax"][crop_i] * idims[0]), idims[0]))
+              scaling = max(min_scaling_value, min(math.ceil(((idims[0] + idims[1]) / 2) / ((max_x - min_x + max_y - min_y) / 2)), max_scaling_value))
               range_x = abs(min_x - max_x)
               range_y = abs(min_y - max_y)
               mid_x = min_x + (range_x // 2)
               mid_y = min_y + (range_y // 2)
-              max_dim = max(range_x, range_y) * 2
-#               max_dim += int(max_dim * 0.80)
+              max_dim = max(range_x, range_y) * scaling
               min_x = mid_x-(max_dim//2)
               max_x = mid_x+(max_dim//2)
               min_y = mid_y-(max_dim//2)
               max_y = mid_y+(max_dim//2)
+
               if (min_x < 0):
                 max_x += abs(min_x)
                 min_x = 0
@@ -150,10 +154,16 @@ def main(_):
               elif (max_y > idims[0]):
                 min_y -= (max_y - idims[0])
                 max_y = idims[1]
+
               image_cropped = image_np[max(0, min_y):min(idims[0], max_y), max(0, min_x):min(idims[1], max_x), :]
               if image_cropped.shape[0] > resolution:
                 image_cropped = cv2.resize(image_cropped, dsize=(resolution, resolution), interpolation=cv2.INTER_AREA)
-              util_io.imsave(output_crop, image_cropped)
+                try:
+                  util_io.imsave(output_crop, image_cropped)
+                except:
+                  continue
+              else:
+                continue
         if FLAGS.visualize_inference:
           output_image = os.path.join(FLAGS.output_path, os.path.basename(paths[images_index]))
           util_io.imsave(output_image, result['annotated_image'])
